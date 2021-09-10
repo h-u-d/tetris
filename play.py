@@ -124,7 +124,7 @@ def draw_board(tet: Tetris, screen: pygame.display, pal: palette):
 
 
 
-def play_tetris(ai = False, dig = False):
+def play_tetris(ai = False, dig = False, depth = 1):
     if dig:
         succ = 0
         attempts = 0
@@ -137,7 +137,7 @@ def play_tetris(ai = False, dig = False):
     
     pygame.display.set_caption("Tetris")
     
-    solver = controller()
+    solver = controller(depth)
     
     #END OF INIT STUFF- ON TO THE GAME LOOP
     
@@ -200,7 +200,7 @@ def play_tetris(ai = False, dig = False):
         if tet.aiMode:
             solver.solve(tet)
 
-        #if tet.blocks_played % 3 == 1 or not tet.aiMode:
+        #if tet.blocks_played % 10 == 1:
         if True:
             draw_board(tet, screen, holo)
 
@@ -213,11 +213,11 @@ def play_tetris(ai = False, dig = False):
                 attempts += 1
                 tet = Tetris(w = 10, h = 28, aiMode = ai, dig = dig)
                 b = tet.board
-                print(str(succ) + " digs in " + str(attempts) + " attempts!")
-                print("apply took " + str(solver.applyTime) + " seconds")
-                print("count took " + str(solver.countTime) + " seconds")
-                print("reset took " + str(solver.resetTime) + " seconds")
-                print("eval took " + str(solver.evalTime) + " seconds")
+                # print(str(succ) + " digs in " + str(attempts) + " attempts!")
+                # print("apply took " + str(solver.applyTime) + " seconds")
+                # print("count took " + str(solver.countTime) + " seconds")
+                # print("reset took " + str(solver.resetTime) + " seconds")
+                # print("eval took " + str(solver.evalTime) + " seconds")
 
             if b.state == "loser":
                 attempts += 1
@@ -233,4 +233,4 @@ def play_tetris(ai = False, dig = False):
     pygame.quit()
 
 #play_tetris()
-play_tetris(ai = True, dig = True)
+play_tetris(ai = True, dig = False, depth = 1)

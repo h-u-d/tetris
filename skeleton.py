@@ -164,7 +164,7 @@ class Board:
         #now, clearList denotes the lines I need to clear out!
 
         ptr = max(clearList) #start at the bottom
-        while ptr >= self.h - 20:
+        while ptr >= self.h - 21:
             if ptr in clearList:
                 count += 1
             else:
@@ -224,6 +224,15 @@ class Board:
     #################### END USER CONTROL METHODS #######################
 
 
+    #an attempt at optimizing the hard_drop function
+    def fast_drop(self, do_spawn = True):
+        dist = 999
+        for x,y in self.active_block.get_loc():
+            dist = min(dist, self.tops[x] - y)
+        self.active_block.y += dist - 1
+        clears = self.add_to_field(do_spawn)
+        return clears
+
 
     #bonus method- fills the field for dig mode
     def make_dig(self):
@@ -234,6 +243,7 @@ class Board:
             for x in range(self.w):
                 if x != emptyIdx:
                     self.field[y][x] = "G"
+        self.update_tops()
 
     
 

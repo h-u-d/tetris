@@ -4,13 +4,16 @@ from skeleton import *
 
 
 class controller:
+    
+    def __init__(self, depth = 1):
+        self.depth = depth
 
-    #trying out dynamic depth
-    depth = 1
+
     applyTime = 0
     countTime = 0
     resetTime= 0
     evalTime = 0
+    move = None
 
      #given a field, return the highest cell in each row
     def topCells(self, field):
@@ -28,14 +31,16 @@ class controller:
     #Heuristic from http://kth.diva-portal.org/smash/get/diva2:815662/FULLTEXT01.pdf
     #3 rules, count how many cells violate each one- note a cell can be double or triple counted
     def countHoles(self, b: Board):
-        countStart = time.time()
+        #countStart = time.time()
+
+        #only consider y >= max(tops)
 
         w, h = len(b.field[0]), len(b.field)
         count1, count2, count3 = 0,0,0
-        tops = self.topCells(b.field)
-        for y, row in enumerate(b.field):
-            for x, cell in enumerate(row):
-                if cell == ' ':
+        tops = b.tops
+        for y in range(min(tops), b.h):
+            for x in range(b.w):
+                if b.field[y][x] == ' ':
                     if x < w-1 and tops[x+1] <= y: #rule 1
                         count1+= (h-y)
                     if x > 0 and tops[x-1] <= y: #rule 2
@@ -48,7 +53,7 @@ class controller:
         #return count1 + count2 + count3
         out = min(count1, count2) + count1 + count2 + count3
 
-        self.countTime += time.time() - countStart
+        #self.countTime += time.time() - countStart
         return out
     
 
@@ -155,7 +160,7 @@ class controller:
     
     #given a target Board tgt, reset its state to that of the model
     def reset(self, tgt: Board, model: Board):
-        resetStart = time.time()
+        #resetStart = time.time()
 
         #reset the field
         for i in range(model.h):
@@ -179,7 +184,7 @@ class controller:
             tgtPreview.append(bk)
         tgt.preview = tgtPreview
 
-        self.resetTime += time.time() - resetStart
+        #self.resetTime += time.time() - resetStart
 
 
 
@@ -187,71 +192,61 @@ class controller:
     #apply the move described in opt to the Tetris object tetris
     #returns the number of lines cleared
     def apply(self, b: Board, move):
-        applyStart = time.time()
+        #applyStart = time.time()
         rot, x = move
         b.active_block.curr = rot
         b.active_block.x = x
-        clears = b.hard_drop()
-        self.applyTime += time.time() - applyStart
+        clears = b.fast_drop()
+        #self.applyTime += time.time() - applyStart
         return clears
     
 
     def fun_apply(self, tetris: Tetris):
         #print("move is " + str(move) + " and active block is " + b.active_block.name)
         b = tetris.board
-        move = tetris.move
+        move = self.move
         rot, x = move
         b.active_block.curr = rot
         if b.active_block.x != x:
-            tetris.move = move
             if b.active_block.x > x:
                 b.active_block.x -= 1
             else:
                 b.active_block.x += 1
-            
             b.soft_drop()
         else:
+            self.move = None
             b.hard_drop()
-        
-    
-    #apply a sequence of moves (NOT CURRENTLY USED)
-    def applySeq(self, b: Board, seq):
-        for move in seq:
-            self.apply(b, move)
-
 
     #prettier, slower version of the solver
     def fun_solve(self, tetris):
         # if not tetris.move:
         #     tetris.move = self.checkStates(tetris, depth)[0]
         b = tetris.board
-        if not tetris.move:
+        if not self.move:
             evalStart = time.time()
             temp = self.recCheck(b, self.depth + 1)[1]
             #temp = self.checkStates(tetris)[0]
             self.evalTime += time.time() - evalStart
             if temp: 
-                tetris.move = temp
-        if tetris.move:
+                self.move = temp
+        if self.move:
             self.fun_apply(tetris)
         else:
-            print("no escape!")
-            tetris.aiMode = False
+            b.fast_drop()
             
 
     def solve(self, tetris):
         b = tetris.board
-        evalStart = time.time()
+        #evalStart = time.time()
         temp = self.recCheck(b, self.depth + 1)[1]
-        self.evalTime += time.time() - evalStart
+        #self.evalTime += time.time() - evalStart
         if temp:
             cleared = self.apply(b, temp)
             tetris.blocks_played += 1
             if cleared:
                 tetris.score += cleared
         else:
-            print("about to lose!")
-            tetris.aiMode = False
+            b.fast_drop()
         
 
 # class stateNode:
