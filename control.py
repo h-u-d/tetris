@@ -27,13 +27,13 @@ class controller:
 
     #Heuristic from http://kth.diva-portal.org/smash/get/diva2:815662/FULLTEXT01.pdf
     #3 rules, count how many cells violate each one- note a cell can be double or triple counted
-    def countHoles(self, tet: Tetris):
+    def countHoles(self, b: Board):
         countStart = time.time()
 
-        w, h = len(tet.field[0]), len(tet.field)
+        w, h = len(b.field[0]), len(b.field)
         count1, count2, count3 = 0,0,0
-        tops = self.topCells(tet.field)
-        for y, row in enumerate(tet.field):
+        tops = self.topCells(b.field)
+        for y, row in enumerate(b.field):
             for x, cell in enumerate(row):
                 if cell == ' ':
                     if x < w-1 and tops[x+1] <= y: #rule 1
@@ -43,7 +43,7 @@ class controller:
                     if tops[x] < y: #rule 3
                         #count3 += (h-y) ** 2
                         count3 += (h - tops[x])
-                    if y > 0 and tet.field[y-1][x] != ' ': #my digging rule!
+                    if y > 0 and b.field[y-1][x] != ' ': #my digging rule!
                         count3+= (h-y)
         #return count1 + count2 + count3
         out = min(count1, count2) + count1 + count2 + count3
@@ -54,60 +54,89 @@ class controller:
 
     #returns all the places we can put the active block
     #might not need the deepcopy but we'll see
-    def genStates(self, tetris):
-        tetCopy = copy.deepcopy(tetris)
+    def genStates(self, b: Board):
+        working = copy.deepcopy(b)
         options = []
-        if tetCopy.active_block == None:
+        if working.active_block == None:
             return options
-        for rot in range(len(tetCopy.active_block.rotations)):
-            for x in range(tetCopy.w):
-                tetCopy.active_block.curr = rot
-                tetCopy.active_block.x = x
-                if not tetCopy.intersect():
+        for rot in range(len(working.active_block.rotations)):
+            for x in range(working.w):
+                working.active_block.curr = rot
+                working.active_block.x = x
+                if not working.intersect():
                     pair = [rot, x]
                     options.append(pair)
         #print(options)
         return options
 
-    
-    #generate a tree of possible states given the active block and the next depth blocks in the queue
-    #TODO: generalize to n-sized queue
-    #goddamn I wanna make this recursive so bad
-    def stateTree(self, tet, depth):
 
-        model = copy.deepcopy(tet)
+
+    ################# THIS CODE IS REPLACED BY recCheck ##########################
+
+    # #generate a tree of possible states given the active block and the next depth blocks in the queue
+    # def stateTree(self, tet, depth):
+
+    #     model = copy.deepcopy(tet)
         
-        #listing ways to place the active block
-        out = []
-        first = self.genStates(tet)
-        for f in first:
-            out.append([f])
+    #     #listing ways to place the active block
+    #     out = []
+    #     first = self.genStates(tet)
+    #     for f in first:
+    #         out.append([f])
 
 
-        #now we consider the queue!
-        #what an ugly bit of code
-        for i in range(depth):
-            nextOut = []
-            for seq in out:
-                seqList = []
-                self.applySeq(tet, seq)
-                options = self.genStates(tet)
-                self.reset(tet, model)
-                for opt in options:
-                    seqList += [seq + [opt]]
-                nextOut += seqList
-            out = nextOut
-        return out
+    #     #now we consider the queue!
+    #     #what an ugly bit of code
+    #     for i in range(depth):
+    #         nextOut = []
+    #         for seq in out:
+    #             seqList = []
+    #             self.applySeq(tet, seq)
+    #             options = self.genStates(tet)
+    #             self.reset(tet, model)
+    #             for opt in options:
+    #                 seqList += [seq + [opt]]
+    #             nextOut += seqList
+    #         out = nextOut
+    #     return out
+
+
+    # #Generates a state tree of the prescribed depth, then returns the optimal move sequence
+    # def checkStates(self, tetris):
+    #     model = tetris
+    #     working = copy.deepcopy(tetris)
+
+    #     minHeight = min(self.topCells(tetris.field))
+    #     if False:
+    #         self.depth = 0
+    #     else:
+    #         self.depth = 1
+
+    #     options = self.stateTree(working, self.depth)
+
+    #     bestSeq = []
+    #     bestHoles = 999999999 #this HAS to be big enough lol
+
+
+    #     for seq in options:
+    #         self.applySeq(working, seq)
+    #         holes = self.countHoles(working)
+    #         if holes < bestHoles and working.state != "loser":
+    #             bestHoles = holes
+    #             bestSeq = seq
+    #         self.reset(working, model)
+
+    #     return bestSeq
 
 
 
     #a recursive function to evaluate all the options and return the best move
     #returns bestMove, bestScore
-    def recCheck(self, tetris: Tetris, nLeft: int):
+    def recCheck(self, b: Board, nLeft: int):
         if nLeft == 0:
-            return self.countHoles(tetris), []
+            return self.countHoles(b), []
         else:
-            working = copy.deepcopy(tetris)
+            working = copy.deepcopy(b)
             #recursive call!
             options = self.genStates(working)
             bestScore = 9999999
@@ -118,57 +147,31 @@ class controller:
                 if score < bestScore and working.state != "loser":
                     bestScore = score
                     bestMove = o
-                self.reset(working, tetris)
+                self.reset(working, b)
             return bestScore, bestMove
 
     
-    #Generates a state tree of the prescribed depth, then returns the optimal move sequence
-    def checkStates(self, tetris):
-        model = tetris
-        working = copy.deepcopy(tetris)
-
-        minHeight = min(self.topCells(tetris.field))
-        if False:
-            self.depth = 0
-        else:
-            self.depth = 1
-
-        options = self.stateTree(working, self.depth)
-
-        bestSeq = []
-        bestHoles = 999999999 #this HAS to be big enough lol
-
-
-        for seq in options:
-            self.applySeq(working, seq)
-            holes = self.countHoles(working)
-            if holes < bestHoles and working.state != "loser":
-                bestHoles = holes
-                bestSeq = seq
-            self.reset(working, model)
-
-        return bestSeq
     
-    #given a target Tetris tgt, reset its state to that of the model
-    def reset(self, tgt: Tetris, model: Tetris):
+    
+    #given a target Board tgt, reset its state to that of the model
+    def reset(self, tgt: Board, model: Board):
         resetStart = time.time()
 
-        #reset the state
-        tgt.state = model.state
-        
-        #reset the move
-        tgt.move = model.move
-
-        #reset blocks_played
-        tgt.blocks_played = model.blocks_played
-
-        #reset the active block
-        tgt.active_block = block(model.active_block.type)
-        
         #reset the field
         for i in range(model.h):
             for j in range(model.w):
                 tgt.field[i][j] = model.field[i][j]
+
+        #reset tops
+        for x in range(model.w):
+            tgt.tops[x] = model.tops[x]
+
+        #reset the state
+        tgt.state = model.state
+        
+
+        #reset the active block
+        tgt.active_block = block(model.active_block.type)
         
         #reset the preview
         tgtPreview = []
@@ -182,43 +185,49 @@ class controller:
 
 
     #apply the move described in opt to the Tetris object tetris
-    def apply(self, tetris, move):
+    #returns the number of lines cleared
+    def apply(self, b: Board, move):
         applyStart = time.time()
         rot, x = move
-        tetris.active_block.curr = rot
-        tetris.active_block.x = x
-        tetris.hard_drop()
+        b.active_block.curr = rot
+        b.active_block.x = x
+        clears = b.hard_drop()
         self.applyTime += time.time() - applyStart
+        return clears
     
-    def fun_apply(self, tetris):
-        #print("move is " + str(move) + " and active block is " + tetris.active_block.name)
+
+    def fun_apply(self, tetris: Tetris):
+        #print("move is " + str(move) + " and active block is " + b.active_block.name)
+        b = tetris.board
         move = tetris.move
         rot, x = move
-        tetris.active_block.curr = rot
-        if tetris.active_block.x != x:
+        b.active_block.curr = rot
+        if b.active_block.x != x:
             tetris.move = move
-            if tetris.active_block.x > x:
-                tetris.active_block.x -= 1
+            if b.active_block.x > x:
+                b.active_block.x -= 1
             else:
-                tetris.active_block.x += 1
+                b.active_block.x += 1
             
-            tetris.soft_drop()
+            b.soft_drop()
         else:
-            tetris.hard_drop()
+            b.hard_drop()
         
     
-    #apply a sequence of moves
-    def applySeq(self, tetris, seq):
+    #apply a sequence of moves (NOT CURRENTLY USED)
+    def applySeq(self, b: Board, seq):
         for move in seq:
-            self.apply(tetris, move)
+            self.apply(b, move)
 
-    #a naive solver, will update when I have a richer state tree
+
+    #prettier, slower version of the solver
     def fun_solve(self, tetris):
         # if not tetris.move:
         #     tetris.move = self.checkStates(tetris, depth)[0]
+        b = tetris.board
         if not tetris.move:
             evalStart = time.time()
-            temp = self.recCheck(tetris, self.depth + 1)[1]
+            temp = self.recCheck(b, self.depth + 1)[1]
             #temp = self.checkStates(tetris)[0]
             self.evalTime += time.time() - evalStart
             if temp: 
@@ -231,10 +240,15 @@ class controller:
             
 
     def solve(self, tetris):
-        optSeq = self.checkStates(tetris)
-        if optSeq:
-            optMove = optSeq[0]
-            self.apply(tetris, optMove)
+        b = tetris.board
+        evalStart = time.time()
+        temp = self.recCheck(b, self.depth + 1)[1]
+        self.evalTime += time.time() - evalStart
+        if temp:
+            cleared = self.apply(b, temp)
+            tetris.blocks_played += 1
+            if cleared:
+                tetris.score += cleared
         else:
             print("about to lose!")
             tetris.aiMode = False

@@ -52,7 +52,7 @@ def draw_preview(tet: Tetris, screen: pygame.display, pal: palette):
     xpos, ypos = 330, 60
     pZoom = 10
     pygame.draw.rect(screen, pal.inner, [xpos - 10, ypos - 10, pZoom * 4 + 10, pZoom * 5 * tet.previewSize + 10])
-    for i, bk in enumerate(tet.preview):
+    for i, bk in enumerate(tet.board.preview):
         thisBlock = block(bk, x = 1, y = 1 + 5 * i)
         thisIds = thisBlock.get_loc()
         thisColor = colors[thisBlock.name]
@@ -63,28 +63,29 @@ def draw_preview(tet: Tetris, screen: pygame.display, pal: palette):
 
 #draws the game described in Tetris tet to the display screen
 def draw_board(tet: Tetris, screen: pygame.display, pal: palette):
+    b = tet.board
     screen.fill(pal.outer)
-    pygame.draw.rect(screen, pal.inner, [tet.x, tet.y + tet.zoom * (tet.h - 20), tet.zoom * tet.w, tet.zoom * 20])
+    pygame.draw.rect(screen, pal.inner, [tet.x, tet.y + tet.zoom * (b.h - 20), tet.zoom * b.w, tet.zoom * 20])
     #draw the field
     #TODO: track dirty bits rather than updating everything
-    for i in range(4, tet.h):
-        for j in range(tet.w):
+    for i in range(4, b.h):
+        for j in range(b.w):
             pygame.draw.rect(screen, pal.grid, [tet.x + tet.zoom * j, tet.y + tet.zoom * i,
                                             tet.zoom, tet.zoom], 1)
-            if tet.field[i][j] != ' ':
+            if b.field[i][j] != ' ':
                 #c = get_color(tet.field[i][j])
-                c = colors[tet.field[i][j]]
+                c = colors[b.field[i][j]]
                 pygame.draw.rect(screen, c, 
                                     [tet.x + tet.zoom * j + 1, tet.y + tet.zoom * i + 1,
                                     tet.zoom - 2, tet.zoom - 2])
             
-    ids = tet.active_block.get_loc()
+    ids = b.active_block.get_loc()
     for idx in ids:
         #way slicker than the original imo
         (x, y) = idx
         if True:
         #if not tet.aiMode:
-            c = colors[tet.active_block.name] if y >= (tet.h - 20) else muted_colors[tet.active_block.name]
+            c = colors[b.active_block.name] if y >= (b.h - 20) else muted_colors[b.active_block.name]
             pygame.draw.rect(screen, c, [tet.x + tet.zoom * x + 1, tet.y + tet.zoom * y + 1,
                                     tet.zoom-2, tet.zoom-2])
     
@@ -144,7 +145,10 @@ def play_tetris(ai = False, dig = False):
     clock = pygame.time.Clock()
     fps = 8
     counter = 0
+
     tet = Tetris(w = 10, h = 28, aiMode = ai, dig = dig)
+    b = tet.board
+
     while(not done): #while True with a break doesn't let you play again- this is better
         #INVARIANT: THERE IS ALWAYS AN ACTIVE BLOCK
         #print('in the game loop')
@@ -153,7 +157,7 @@ def play_tetris(ai = False, dig = False):
             counter = 0
         
         if not tet.aiMode and (counter % (fps) == 0):
-            tet.soft_drop()
+            b.soft_drop()
         
         #will need to refactor this stuff into another fn.
         for event in pygame.event.get():
@@ -162,31 +166,39 @@ def play_tetris(ai = False, dig = False):
             if event.type == pygame.KEYDOWN: #TODO: read the keystroke docs
                 #which hard drop is more natural- up or space?
                 #gonna start w both
+                clears = 0
+
                 if event.key == pygame.K_LSHIFT:
                     tet.aiMode = not tet.aiMode
                 if event.key == pygame.K_SPACE:
-                    tet.hard_drop()
+                    clears = b.hard_drop()
                 if event.key == pygame.K_UP:
-                    tet.hard_drop()
+                    clears = b.hard_drop()
                 if event.key == pygame.K_DOWN:
-                    tet.soft_drop()
+                    clears = b.soft_drop()
                 if event.key == pygame.K_LEFT:
-                    tet.left()
+                    b.left()
                 if event.key == pygame.K_RIGHT:
-                    tet.right()
+                    b.right()
+
+                if event.key == pygame.K_p:
+                    print(b.tops)
                     
                 #not sure about these
                 if event.key == pygame.K_f:
-                    tet.spin()
+                    b.spin()
                 if event.key == pygame.K_d:
-                    tet.backspin()
+                    b.backspin()
                 
                 if event.key == pygame.K_ESCAPE:
                     #TODO: implement pause functionality
                     done = True
+
+                if clears:
+                    tet.score += clears
         
         if tet.aiMode:
-            solver.fun_solve(tet)
+            solver.solve(tet)
 
         #if tet.blocks_played % 3 == 1 or not tet.aiMode:
         if True:
@@ -195,27 +207,30 @@ def play_tetris(ai = False, dig = False):
         clock.tick(fps * 2)
 
         if dig:
-            if not "G" in (cell for row in tet.field for cell in row):
+            if not "G" in (cell for row in b.field for cell in row):
                 print("dug it in " + str(tet.blocks_played) + " moves")
                 succ += 1
                 attempts += 1
                 tet = Tetris(w = 10, h = 28, aiMode = ai, dig = dig)
+                b = tet.board
                 print(str(succ) + " digs in " + str(attempts) + " attempts!")
                 print("apply took " + str(solver.applyTime) + " seconds")
                 print("count took " + str(solver.countTime) + " seconds")
                 print("reset took " + str(solver.resetTime) + " seconds")
                 print("eval took " + str(solver.evalTime) + " seconds")
 
-            if tet.state == "loser":
+            if b.state == "loser":
                 attempts += 1
                 tet = Tetris(w = 10, h = 28, aiMode = ai, dig = dig)
+                b = tet.board
                 print(str(succ) + " digs in " + str(attempts) + " attempts!")
         
-        elif tet.state == "loser":
+        elif b.state == "loser":
             done = True
             print('Your score is: ' + str(tet.score))
     
     #exited the while loop
     pygame.quit()
 
+#play_tetris()
 play_tetris(ai = True, dig = True)
