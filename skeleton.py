@@ -1,6 +1,6 @@
 import random
 
-class block:
+class OGblock:
     shapes = [
         #I block
         [
@@ -54,7 +54,7 @@ class block:
             self.type = bk
         self.name = self.names[self.type]
         self.rotations = self.shapes[self.type]
-        self.curr = 0
+        self.curr = 0 #tracks the current rotation of the block
         self.x = x
         self.y = y
         
@@ -72,11 +72,186 @@ class block:
         self.curr = (self.curr - 1) % len(self.rotations)
 
 
-class Field:
-    def __init__(self, h, w):
-        self.board = [[0 for x in range(w)] for y in range(h)]
-        self.tops = [0 for x in range(w)]
+class block:
+    shapes = [
+        #I block
+        [
+            [[0,0], [0,-1], [0,1], [0,2]],
+            [[0,0], [-1, 0], [1, 0], [2, 0]]
+        ],
+        #O block
+        [
+            [[0,0], [0,-1], [1,0], [1,-1]]
+        ],
+        #T block
+        [
+            [[0,0], [-1, 0], [0,1], [1,0]],
+            [[0,0], [-1, 0], [0,1], [0,-1]],
+            [[0,0], [-1, 0], [0,-1], [1,0]],
+            [[0,0], [0, -1], [0,1], [1,0]]
+        ],
+        #S block
+        [
+            [[0, 0], [0, 1], [-1, 1], [1,0]],
+            [[0, 0], [0, -1], [1, 0], [1, 1]]
+        ],
+        #Z block
+        [
+            [[0,0], [-1, 0], [0,1], [1, 1]],
+            [[0,0], [0, 1], [1, 0], [1, -1]]
+        ],
+        #J block
+        [
+            [[0,0], [0,1], [0,-1], [-1, 1]],
+            [[0,0], [-1, -1], [-1, 0], [1, 0]],
+            [[0,0], [1, -1], [0, 1], [0, -1]],
+            [[0,0], [1, 1], [1, 0], [-1, 0]],
+        ],
+        #L block
+        [
+            [[0,0], [0,1], [0,-1], [1, 1]],
+            [[0,0], [-1, 1], [-1,0], [1,0]],
+            [[0,0], [-1, -1], [0, -1], [0, 1]],
+            [[0,0], [-1, 0], [1, 0], [1, -1]]
+        ]
+    ]
     
+    names = ["I","O","T","S", "Z", "J", "L"]
+             
+    
+    def __init__(self, bk = -1, x = 5, y = 1):
+        if bk == -1:
+            self.type = random.randrange(7)
+        else:
+            self.type = bk
+        self.name = self.names[self.type]
+        self.rotations = self.shapes[self.type]
+        self.curr = 0 #tracks the current rotation of the block
+        self.x = x
+        self.y = y
+        
+    def get_loc(self):
+        out = []
+        for offset in self.rotations[self.curr]:
+            idx = [self.x + list(offset)[0], self.y + list(offset)[1]]
+            out.append(idx)
+        return out
+        
+    def spin(self): #this works!
+        self.curr = (self.curr + 1) % len(self.rotations)
+        
+    def backspin(self): #DEBUG
+        self.curr = (self.curr - 1) % len(self.rotations)
+
+
+
+
+
+
+
+
+
+#looking to refactor a little bit out of the Tetris class
+class Board:
+    def __init__(self, h, w):
+        self.w = w #width of the field
+        self.h = h #height of the field
+        self.field = [[0 for x in range(w)] for y in range(h)] #int array array
+        self.tops = [h for x in range(w)] #int array describing topmost block height in each column
+        self.active_block = block() #current block in play
+        self.preview = [random.randrange(7) for i in range(self.previewSize)] #blocks that are coming up
+        self.state = "start"
+
+    #fills the field for dig mode
+    def make_dig(self):
+        digHeight = 15
+        for y in range(self.h - digHeight, self.h):
+            #choose a cell to leave empty
+            emptyIdx = random.randrange(self.w)
+            for x in range(self.w):
+                if x != emptyIdx:
+                    self.field[y][x] = "G"
+ 
+    #updates the tops array
+    def update_tops(self):
+        for row in self.field:
+            return
+    
+    #adds a block to the field
+    def add_block(self, bk: block):
+        for (x,y) in bk.get_loc():
+            self.field[y][x] = bk.name
+            self.tops[x] = min(self.tops[x],y)
+        self.clear_lines()
+
+    #checks if a block bk intersects with the board
+    def intersect(self, bk: block):
+        ids = self.active_block.get_loc()
+        for (x,y) in ids:
+            if x < 0 or x >= self.w:
+                return True
+            elif y < 0 or y >= self.h:
+                return True
+            elif self.field[y][x] != ' ':
+                return True
+        return False
+
+
+
+    ################## USER CONTROL METHODS #######################
+
+    #tries to spin the active block clockwise
+    def spin(self):
+        old = self.active_block.curr
+        self.active_block.spin()
+        if self.intersect():
+            self.active_block.curr = old
+        
+    #tries to spin the active block counterclockwise
+    def backspin(self):
+        old = self.active_block.curr
+        self.active_block.backspin()
+        if self.intersect():
+            self.active_block.curr = old
+
+    #tries to move the active block one space to the left
+    def left(self):
+        self.active_block.x -= 1
+        if self.intersect():
+            self.active_block.x += 1
+
+    #tries to move the active block one space to the right
+    def right(self):
+        self.active_block.x += 1
+        if self.intersect():
+            self.active_block.x -= 1
+
+    #soft drops the active block
+    def user_soft_drop(self, do_spawn = True):
+        self.active_block.y += 1
+        if self.intersect():
+            self.move = None
+            self.active_block.y -= 1
+            self.add_to_field(do_spawn)
+            
+    #hard drops the active block
+    def user_hard_drop(self, do_spawn = True):
+        while not self.intersect():
+            self.active_block.y += 1
+        self.move = None
+        self.active_block.y -= 1
+        self.add_to_field(do_spawn)
+
+
+
+
+    
+
+
+
+
+
+        
 class Tetris:
     
     #These parameters place and size the board within the screen
@@ -120,7 +295,7 @@ class Tetris:
     #switching to a version that calls get_loc() on its own, rather than needing input
     def intersect(self):
         ids = self.active_block.get_loc()
-        for (x,y) in ids:
+        for [x,y] in ids:
             if x < 0 or x >= self.w:
                 return True
             elif y < 0 or y >= self.h:

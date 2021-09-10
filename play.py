@@ -218,4 +218,4 @@ def play_tetris(ai = False, dig = False):
     #exited the while loop
     pygame.quit()
 
-play_tetris(ai = True, dig = False)
+play_tetris(ai = True, dig = True)
